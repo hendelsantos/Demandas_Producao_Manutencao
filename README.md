@@ -1,4 +1,4 @@
-# Sistema de Gestão de Demandas +Hyundai
+# Sistema de Gestão de Demandas 
 
 Sistema para gerenciamento de demandas de manutenção e produção, com fluxo de aprovação multinível (Solicitante -> Produção -> Manutenção -> Execução).
 
