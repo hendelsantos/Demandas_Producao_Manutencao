@@ -144,6 +144,7 @@ class MaintenanceRequestViewSet(viewsets.ModelViewSet):
         instance.status = 'DONE'
         instance.execution_description = request.data.get('execution_description', '')
         instance.pm04_order = request.data.get('pm04_order', '')
+        instance.technician_name = request.data.get('technician_name', '')
         instance.observation = request.data.get('observation', '') # Capture final observation
         from django.utils import timezone
         instance.finished_at = timezone.now()
@@ -200,6 +201,7 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
         queryset = User.objects.all()

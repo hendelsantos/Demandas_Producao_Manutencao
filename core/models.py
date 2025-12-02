@@ -72,6 +72,7 @@ class MaintenanceRequest(models.Model):
     execution_description = models.TextField(blank=True, null=True, verbose_name="Descrição da Atividade")
     execution_photo = models.ImageField(upload_to='executions/', blank=True, null=True, verbose_name="Foto da Execução")
     pm04_order = models.CharField(max_length=50, blank=True, null=True, verbose_name="Nº Ordem PM04")
+    technician_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nome do Técnico Executante")
     
     # Whiteboard specific fields
     observation = models.TextField(blank=True, null=True, verbose_name="Observação")

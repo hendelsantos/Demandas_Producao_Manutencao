@@ -19,6 +19,7 @@ const RequestDetails = () => {
     const [pm04Order, setPm04Order] = useState('');
     const [executionDesc, setExecutionDesc] = useState('');
     const [finalObservation, setFinalObservation] = useState('');
+    const [technicianName, setTechnicianName] = useState('');
 
     useEffect(() => {
         const fetchRequest = async () => {
@@ -29,6 +30,7 @@ const RequestDetails = () => {
                 if (response.data.pm04_order) setPm04Order(response.data.pm04_order);
                 if (response.data.execution_description) setExecutionDesc(response.data.execution_description);
                 if (response.data.observation) setFinalObservation(response.data.observation);
+                if (response.data.technician_name) setTechnicianName(response.data.technician_name);
             } catch (error) {
                 console.error('Erro ao buscar detalhes da demanda', error);
             } finally {
@@ -78,6 +80,7 @@ const RequestDetails = () => {
                 payload.execution_description = executionDesc;
                 payload.pm04_order = pm04Order || 'N/A';
                 payload.observation = finalObservation;
+                payload.technician_name = technicianName;
             }
 
             await api.post(`requests/${id}/${endpoint}`, payload);
@@ -249,7 +252,7 @@ const RequestDetails = () => {
                                                     value={selectedExecutor}
                                                     onChange={(e) => setSelectedExecutor(e.target.value)}
                                                 >
-                                                    <option value="">Selecione Executante...</option>
+                                                    <option value="">Selecione Encarregado...</option>
                                                     {executors.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
                                                 </select>
                                             )}
@@ -280,7 +283,7 @@ const RequestDetails = () => {
                             ) : (
                                 <div className="mt-4">
                                     {request.type && <span className="block text-xs font-bold uppercase text-blue-600 mb-1">{request.type_display}</span>}
-                                    {request.assigned_to_name && <span className="block text-sm text-slate-700 dark:text-slate-300">Resp: {request.assigned_to_name}</span>}
+                                    {request.assigned_to_name && <span className="block text-sm text-slate-700 dark:text-slate-300">Encarregado: {request.assigned_to_name}</span>}
                                 </div>
                             )}
                         </div>
@@ -293,6 +296,13 @@ const RequestDetails = () => {
 
                             {request.status === 'IN_EXECUTION' ? (
                                 <div className="flex flex-col gap-3 mt-4">
+                                    <input
+                                        type="text"
+                                        className="w-full p-2 text-sm border rounded-lg dark:bg-slate-700 dark:border-slate-600"
+                                        placeholder="Nome do Técnico Executante"
+                                        value={technicianName}
+                                        onChange={e => setTechnicianName(e.target.value)}
+                                    />
                                     <textarea
                                         className="w-full p-2 text-sm border rounded-lg dark:bg-slate-700 dark:border-slate-600"
                                         placeholder="Descrição da Atividade..."
@@ -324,6 +334,9 @@ const RequestDetails = () => {
                                 <div className="mt-4 space-y-2 text-sm">
                                     <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-100 dark:border-green-800">
                                         <span className="block text-xs font-bold text-green-700 dark:text-green-400">PM04: {request.pm04_order}</span>
+                                        {request.technician_name && (
+                                            <span className="block text-xs font-bold text-slate-600 dark:text-slate-400 mt-1">Técnico: {request.technician_name}</span>
+                                        )}
                                         <p className="text-slate-700 dark:text-slate-300 mt-1">{request.execution_description}</p>
                                     </div>
                                     {request.observation && (
