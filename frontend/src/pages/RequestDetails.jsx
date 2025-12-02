@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, X, Play, CheckCircle, ShieldCheck, Wrench, FileCheck, User, Calendar, AlertCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, X, Play, CheckCircle, ShieldCheck, Wrench, FileCheck, User, Calendar, AlertCircle, XCircle, Clock, FileText, Camera } from 'lucide-react';
 
 const RequestDetails = () => {
     const { id } = useParams();
@@ -11,15 +11,24 @@ const RequestDetails = () => {
     const [loading, setLoading] = useState(true);
     const [executors, setExecutors] = useState([]);
     const [engineers, setEngineers] = useState([]);
+
+    // Form States
     const [selectedType, setSelectedType] = useState('');
     const [selectedExecutor, setSelectedExecutor] = useState('');
     const [selectedEngineer, setSelectedEngineer] = useState('');
+    const [pm04Order, setPm04Order] = useState('');
+    const [executionDesc, setExecutionDesc] = useState('');
+    const [finalObservation, setFinalObservation] = useState('');
 
     useEffect(() => {
         const fetchRequest = async () => {
             try {
                 const response = await api.get(`requests/${id}/`);
                 setRequest(response.data);
+                // Pre-fill fields if editing (though usually we just move forward)
+                if (response.data.pm04_order) setPm04Order(response.data.pm04_order);
+                if (response.data.execution_description) setExecutionDesc(response.data.execution_description);
+                if (response.data.observation) setFinalObservation(response.data.observation);
             } catch (error) {
                 console.error('Erro ao buscar detalhes da demanda', error);
             } finally {
@@ -32,7 +41,6 @@ const RequestDetails = () => {
                 const execResponse = await api.get('users/?role=EXECUTOR');
                 setExecutors(execResponse.data);
 
-                // Fetch both types of engineers
                 const mechResponse = await api.get('users/?role=ENGINEER_MECH');
                 const elecResponse = await api.get('users/?role=ENGINEER_ELEC');
                 setEngineers([...mechResponse.data, ...elecResponse.data]);
@@ -67,6 +75,9 @@ const RequestDetails = () => {
 
             if (actionType === 'finish') {
                 endpoint = 'finish_execution/';
+                payload.execution_description = executionDesc;
+                payload.pm04_order = pm04Order || 'N/A';
+                payload.observation = finalObservation;
             }
 
             await api.post(`requests/${id}/${endpoint}`, payload);
@@ -75,10 +86,6 @@ const RequestDetails = () => {
             const response = await api.get(`requests/${id}/`);
             setRequest(response.data);
             setComment('');
-            // Reset selections
-            setSelectedType('');
-            setSelectedExecutor('');
-            setSelectedEngineer('');
         } catch (error) {
             console.error('Erro ao processar ação', error);
             alert('Erro ao processar ação. Verifique os dados e tente novamente.');
@@ -88,17 +95,59 @@ const RequestDetails = () => {
     if (loading) return <div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>;
     if (!request) return <div className="text-center mt-20 text-slate-500">Demanda não encontrada.</div>;
 
-    const ApprovalIcon = ({ status, type }) => {
-        const isApproved = (type === 'PROD' && ['WAITING_MAINT', 'WAITING_MANAGER', 'IN_EXECUTION', 'DONE'].includes(status)) ||
-            (type === 'MAINT' && ['WAITING_MANAGER', 'IN_EXECUTION', 'DONE'].includes(status));
+    // Helper to check if a stage is active or completed
+    const getStageStatus = (stage) => {
+        const flow = ['OPEN', 'WAITING_PROD', 'WAITING_MAINT', 'IN_EXECUTION', 'DONE'];
+        // Map WAITING_MANAGER to WAITING_MAINT logic for visual simplicity or separate it
+        // The whiteboard has "Aprovador 2 (Manut)" which splits into "Técnica" or "Engenharia"
 
-        if (!isApproved) return null;
+        if (request.status === 'REJECTED') return 'rejected';
+
+        const status = request.status;
+
+        if (stage === 'USER') return 'completed'; // Always started by user
+
+        if (stage === 'PROD') {
+            if (status === 'OPEN') return 'active';
+            if (['WAITING_MAINT', 'WAITING_MANAGER', 'IN_EXECUTION', 'DONE'].includes(status)) return 'completed';
+            return 'pending';
+        }
+
+        if (stage === 'MAINT') {
+            if (status === 'WAITING_MAINT') return 'active';
+            if (status === 'WAITING_MANAGER') return 'active'; // Manager is part of Maint/Eng flow
+            if (['IN_EXECUTION', 'DONE'].includes(status)) return 'completed';
+            return 'pending';
+        }
+
+        if (stage === 'EXEC') {
+            if (status === 'IN_EXECUTION') return 'active';
+            if (status === 'DONE') return 'completed';
+            return 'pending';
+        }
+
+        return 'pending';
+    };
+
+    const StageBox = ({ title, stage, children, icon: Icon }) => {
+        const status = getStageStatus(stage);
+        const borderColor = status === 'active' ? 'border-blue-500 ring-1 ring-blue-500' :
+            status === 'completed' ? 'border-green-500' :
+                status === 'rejected' ? 'border-red-500' : 'border-slate-200 dark:border-slate-700';
+
+        const opacity = status === 'pending' ? 'opacity-50' : 'opacity-100';
 
         return (
-            <div className={`absolute ${type === 'PROD' ? 'top-4 right-4' : 'top-20 right-4'} opacity-20 rotate-12 pointer-events-none`}>
-                <div className="border-4 border-green-600 text-green-600 rounded-lg p-2 font-black text-xl uppercase tracking-widest flex items-center gap-2">
-                    <CheckCircle size={32} />
-                    Aprovado {type}
+            <div className={`bg-white dark:bg-slate-800 rounded-xl border-2 ${borderColor} ${opacity} p-6 flex flex-col h-full transition-all duration-300`}>
+                <div className="flex items-center gap-2 mb-4 border-b border-slate-100 dark:border-slate-700 pb-3">
+                    <div className={`p-2 rounded-lg ${status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-600'} dark:bg-slate-700 dark:text-slate-300`}>
+                        <Icon size={20} />
+                    </div>
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white">{title}</h3>
+                    {status === 'completed' && <CheckCircle size={18} className="text-green-500 ml-auto" />}
+                </div>
+                <div className="flex-1">
+                    {children}
                 </div>
             </div>
         );
@@ -106,220 +155,190 @@ const RequestDetails = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white p-6 transition-colors duration-300">
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-7xl mx-auto">
                 <button onClick={() => navigate('/dashboard')} className="mb-6 flex items-center text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     <ArrowLeft size={20} className="mr-2" />
                     Voltar para o Painel
                 </button>
 
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden relative">
-                    <ApprovalIcon status={request.status} type="PROD" />
-                    <ApprovalIcon status={request.status} type="MAINT" />
-
-                    <div className="p-8 border-b border-slate-100 dark:border-slate-700">
-                        <div className="flex justify-between items-start mb-6">
-                            <div>
-                                <span className="text-sm font-mono text-slate-400 dark:text-slate-500 mb-2 block">#{request.id.toString().padStart(4, '0')}</span>
-                                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">{request.title}</h1>
-                                <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
-                                    <span className="flex items-center gap-1"><User size={16} /> {request.requester_name}</span>
-                                    <span className="flex items-center gap-1"><Calendar size={16} /> {new Date(request.created_at).toLocaleDateString()}</span>
-                                </div>
-                            </div>
-                            <span className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide ${request.status === 'DONE' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                request.status === 'REJECTED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                }`}>
-                                {request.status_display}
-                            </span>
-                        </div>
-
-                        {/* Details Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                            <div>
-                                <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Descrição do Problema</h3>
-                                <p className="text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                                    {request.problem_description}
-                                </p>
-                            </div>
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Processo</h3>
-                                        <p className="font-medium">{request.process}</p>
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Equipamento</h3>
-                                        <p className="font-medium">{request.equipment}</p>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Matriz GUT</h3>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-2 text-center">
-                                            <div className="text-xs text-slate-500">Gravidade</div>
-                                            <div className="font-bold text-lg">{request.gut_gravity}</div>
-                                        </div>
-                                        <div className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-2 text-center">
-                                            <div className="text-xs text-slate-500">Urgência</div>
-                                            <div className="font-bold text-lg">{request.gut_urgency}</div>
-                                        </div>
-                                        <div className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-2 text-center">
-                                            <div className="text-xs text-slate-500">Tendência</div>
-                                            <div className="font-bold text-lg">{request.gut_tendency}</div>
-                                        </div>
-                                        <div className="flex-1 bg-slate-200 dark:bg-slate-600 rounded-lg p-2 text-center border-l-2 border-slate-300 dark:border-slate-500">
-                                            <div className="text-xs text-slate-600 dark:text-slate-300">Total</div>
-                                            <div className="font-black text-lg text-slate-800 dark:text-white">{request.gut_gravity * request.gut_urgency * request.gut_tendency}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Additional Info (Type & Assigned To) */}
-                        {(request.type || request.assigned_to_name) && (
-                            <div className="mb-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800 flex flex-wrap gap-6">
-                                {request.type_display && (
-                                    <div>
-                                        <h3 className="text-xs font-bold text-blue-400 dark:text-blue-300 uppercase tracking-wider mb-1">Tipo de Demanda</h3>
-                                        <p className="font-bold text-blue-900 dark:text-blue-100">{request.type_display}</p>
-                                    </div>
-                                )}
-                                {request.assigned_to_name && (
-                                    <div>
-                                        <h3 className="text-xs font-bold text-blue-400 dark:text-blue-300 uppercase tracking-wider mb-1">Responsável Atual</h3>
-                                        <p className="font-bold text-blue-900 dark:text-blue-100 flex items-center gap-2">
-                                            <User size={16} /> {request.assigned_to_name}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {request.photo && (
-                            <div className="mb-8">
-                                <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Evidência Fotográfica</h3>
-                                <img src={request.photo} alt="Evidência" className="rounded-xl max-h-96 object-cover shadow-md" />
-                            </div>
-                        )}
+                <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-2">
+                        <span className="text-sm font-mono text-slate-400 dark:text-slate-500">#{request.id.toString().padStart(4, '0')}</span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${request.status === 'DONE' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {request.status_display}
+                        </span>
                     </div>
+                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{request.title}</h1>
+                </div>
 
-                    {/* Actions Section */}
-                    <div className="p-8 bg-slate-50 dark:bg-slate-800/50">
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-                            <AlertCircle size={18} />
-                            Ações Disponíveis
-                        </h3>
+                {/* Workflow Grid - Mimicking the Whiteboard Flow */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
-                        <div className="flex flex-wrap gap-4">
-                            {/* Production Approval */}
-                            {request.status === 'OPEN' && (
-                                <>
-                                    <button onClick={() => handleAction('approve_prod')} className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-green-600/20 transition-transform hover:-translate-y-0.5 flex items-center gap-2">
-                                        <CheckCircle size={20} /> Aprovar (Produção)
-                                    </button>
-                                    <button onClick={() => handleAction('reject_prod')} className="bg-red-100 hover:bg-red-200 text-red-700 px-6 py-3 rounded-xl font-bold transition-colors flex items-center gap-2">
-                                        <XCircle size={20} /> Rejeitar
-                                    </button>
-                                </>
+                    {/* 1. Usuário (Solicitante) */}
+                    <StageBox title="Usuário" stage="USER" icon={User}>
+                        <div className="space-y-4 text-sm">
+                            <div>
+                                <span className="text-slate-500 block text-xs uppercase font-bold">Problema</span>
+                                <p className="font-medium">{request.problem_description}</p>
+                            </div>
+                            <div>
+                                <span className="text-slate-500 block text-xs uppercase font-bold">Processo / Equip.</span>
+                                <p>{request.process} - {request.equipment}</p>
+                            </div>
+                            <div>
+                                <span className="text-slate-500 block text-xs uppercase font-bold">G.U.T.</span>
+                                <p>G:{request.gut_gravity} x U:{request.gut_urgency} x T:{request.gut_tendency} = <strong>{request.gut_gravity * request.gut_urgency * request.gut_tendency}</strong></p>
+                            </div>
+                            {request.photo && (
+                                <div>
+                                    <span className="text-slate-500 block text-xs uppercase font-bold mb-1">Foto</span>
+                                    <img src={request.photo} alt="Evidência" className="rounded-lg h-24 w-full object-cover" />
+                                </div>
                             )}
+                        </div>
+                    </StageBox>
 
-                            {/* Maintenance Approval (Supervisor) */}
-                            {request.status === 'WAITING_MAINT' && (
-                                <div className="w-full bg-white dark:bg-slate-700 p-6 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm">
-                                    <h4 className="font-bold mb-4 text-slate-800 dark:text-white">Aprovação de Manutenção</h4>
+                    {/* 2. Aprovador 1 (Produção) */}
+                    <StageBox title="Aprovador 1 (Prod.)" stage="PROD" icon={ShieldCheck}>
+                        <div className="space-y-4">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">Validação da necessidade e G.U.T.</p>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Tipo de Demanda</label>
+                            {request.status === 'OPEN' ? (
+                                <div className="flex flex-col gap-2 mt-4">
+                                    <textarea
+                                        className="w-full p-2 text-sm border rounded-lg dark:bg-slate-700 dark:border-slate-600"
+                                        placeholder="Observação (Opcional)..."
+                                        value={comment}
+                                        onChange={e => setComment(e.target.value)}
+                                    />
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleAction('approve_prod')} className="flex-1 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700">Aprovar</button>
+                                        <button onClick={() => handleAction('reject_prod')} className="flex-1 bg-red-100 text-red-700 py-2 rounded-lg font-bold text-sm hover:bg-red-200">Rejeitar</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg text-sm italic text-slate-500">
+                                    Aprovado/Processado
+                                </div>
+                            )}
+                        </div>
+                    </StageBox>
+
+                    {/* 3. Aprovador 2 (Manutenção) */}
+                    <StageBox title="Aprovador 2 (Manut.)" stage="MAINT" icon={Wrench}>
+                        <div className="space-y-4">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">Definição técnica ou engenharia.</p>
+
+                            {(request.status === 'WAITING_MAINT' || request.status === 'WAITING_MANAGER') ? (
+                                <div className="flex flex-col gap-3 mt-4">
+                                    {request.status === 'WAITING_MAINT' && (
+                                        <>
                                             <select
-                                                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                className="w-full p-2 text-sm border rounded-lg dark:bg-slate-700 dark:border-slate-600"
                                                 value={selectedType}
                                                 onChange={(e) => setSelectedType(e.target.value)}
                                             >
-                                                <option value="">Selecione...</option>
-                                                <option value="TECHNICAL">Técnica (Execução Direta)</option>
-                                                <option value="ENGINEERING">Engenharia (Gerência)</option>
+                                                <option value="">Tipo de Demanda...</option>
+                                                <option value="TECHNICAL">Técnica (H/A/T/M)</option>
+                                                <option value="ENGINEERING">Engenharia</option>
                                             </select>
-                                        </div>
 
-                                        {selectedType === 'TECHNICAL' && (
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Atribuir Executante</label>
+                                            {selectedType === 'TECHNICAL' && (
                                                 <select
-                                                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    className="w-full p-2 text-sm border rounded-lg dark:bg-slate-700 dark:border-slate-600"
                                                     value={selectedExecutor}
                                                     onChange={(e) => setSelectedExecutor(e.target.value)}
                                                 >
-                                                    <option value="">Selecione um técnico...</option>
-                                                    {executors.map(user => (
-                                                        <option key={user.id} value={user.id}>{user.first_name} {user.last_name} ({user.username})</option>
-                                                    ))}
+                                                    <option value="">Selecione Executante...</option>
+                                                    {executors.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
                                                 </select>
-                                            </div>
-                                        )}
-                                    </div>
+                                            )}
+                                        </>
+                                    )}
 
-                                    <div className="flex gap-4">
-                                        <button
-                                            onClick={() => handleAction('approve_maint')}
-                                            disabled={!selectedType || (selectedType === 'TECHNICAL' && !selectedExecutor)}
-                                            className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-transform hover:-translate-y-0.5 flex items-center gap-2"
-                                        >
-                                            <CheckCircle size={20} />
-                                            {selectedType === 'ENGINEERING' ? 'Encaminhar para Gerência' : 'Aprovar e Atribuir'}
-                                        </button>
-                                        <button onClick={() => handleAction('reject_maint')} className="bg-red-100 hover:bg-red-200 text-red-700 px-6 py-3 rounded-xl font-bold transition-colors flex items-center gap-2">
-                                            <XCircle size={20} /> Rejeitar
-                                        </button>
-                                    </div>
+                                    {request.status === 'WAITING_MANAGER' && (
+                                        <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-100 dark:border-purple-800 mb-2">
+                                            <span className="text-xs font-bold text-purple-600 uppercase">Aprovação Gerencial</span>
+                                            <select
+                                                className="w-full p-2 mt-2 text-sm border rounded-lg dark:bg-slate-700 dark:border-slate-600"
+                                                value={selectedEngineer}
+                                                onChange={(e) => setSelectedEngineer(e.target.value)}
+                                            >
+                                                <option value="">Selecione Engenheiro...</option>
+                                                {engineers.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={() => request.status === 'WAITING_MANAGER' ? handleAction('approve_manager') : handleAction('approve_maint')}
+                                        className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-blue-700"
+                                    >
+                                        Confirmar
+                                    </button>
                                 </div>
-                            )}
-
-                            {/* Manager Approval */}
-                            {request.status === 'WAITING_MANAGER' && (
-                                <div className="w-full bg-white dark:bg-slate-700 p-6 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm">
-                                    <h4 className="font-bold mb-4 text-slate-800 dark:text-white">Aprovação Gerencial (Engenharia)</h4>
-
-                                    <div className="mb-6">
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Atribuir Engenheiro Responsável</label>
-                                        <select
-                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                            value={selectedEngineer}
-                                            onChange={(e) => setSelectedEngineer(e.target.value)}
-                                        >
-                                            <option value="">Selecione um engenheiro...</option>
-                                            {engineers.map(user => (
-                                                <option key={user.id} value={user.id}>{user.first_name} {user.last_name} ({user.username})</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="flex gap-4">
-                                        <button
-                                            onClick={() => handleAction('approve_manager')}
-                                            disabled={!selectedEngineer}
-                                            className="bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-purple-600/20 transition-transform hover:-translate-y-0.5 flex items-center gap-2"
-                                        >
-                                            <CheckCircle size={20} /> Aprovar e Atribuir
-                                        </button>
-                                        <button onClick={() => handleAction('reject_maint')} className="bg-red-100 hover:bg-red-200 text-red-700 px-6 py-3 rounded-xl font-bold transition-colors flex items-center gap-2">
-                                            <XCircle size={20} /> Rejeitar
-                                        </button>
-                                    </div>
+                            ) : (
+                                <div className="mt-4">
+                                    {request.type && <span className="block text-xs font-bold uppercase text-blue-600 mb-1">{request.type_display}</span>}
+                                    {request.assigned_to_name && <span className="block text-sm text-slate-700 dark:text-slate-300">Resp: {request.assigned_to_name}</span>}
                                 </div>
-                            )}
-
-                            {/* Execution Finish */}
-                            {request.status === 'IN_EXECUTION' && (
-                                <button onClick={() => handleAction('finish')} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-transform hover:-translate-y-0.5 flex items-center gap-2">
-                                    <CheckCircle size={20} /> Finalizar Execução
-                                </button>
                             )}
                         </div>
-                    </div>
+                    </StageBox>
+
+                    {/* 4. Executante */}
+                    <StageBox title="Executante" stage="EXEC" icon={Wrench}>
+                        <div className="space-y-4">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">Execução e encerramento.</p>
+
+                            {request.status === 'IN_EXECUTION' ? (
+                                <div className="flex flex-col gap-3 mt-4">
+                                    <textarea
+                                        className="w-full p-2 text-sm border rounded-lg dark:bg-slate-700 dark:border-slate-600"
+                                        placeholder="Descrição da Atividade..."
+                                        value={executionDesc}
+                                        onChange={e => setExecutionDesc(e.target.value)}
+                                    />
+                                    <input
+                                        type="text"
+                                        className="w-full p-2 text-sm border rounded-lg dark:bg-slate-700 dark:border-slate-600"
+                                        placeholder="Nº Ordem PM04 (ou N/A)"
+                                        value={pm04Order}
+                                        onChange={e => setPm04Order(e.target.value)}
+                                    />
+                                    <textarea
+                                        className="w-full p-2 text-sm border rounded-lg dark:bg-slate-700 dark:border-slate-600"
+                                        placeholder="Observação Final..."
+                                        value={finalObservation}
+                                        onChange={e => setFinalObservation(e.target.value)}
+                                    />
+
+                                    <button
+                                        onClick={() => handleAction('finish')}
+                                        className="w-full bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircle size={16} /> Encerrar
+                                    </button>
+                                </div>
+                            ) : request.status === 'DONE' ? (
+                                <div className="mt-4 space-y-2 text-sm">
+                                    <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-100 dark:border-green-800">
+                                        <span className="block text-xs font-bold text-green-700 dark:text-green-400">PM04: {request.pm04_order}</span>
+                                        <p className="text-slate-700 dark:text-slate-300 mt-1">{request.execution_description}</p>
+                                    </div>
+                                    {request.observation && (
+                                        <p className="text-xs text-slate-500 italic">Obs: {request.observation}</p>
+                                    )}
+                                    {request.finished_at && (
+                                        <p className="text-xs text-slate-400">Encerrado em: {new Date(request.finished_at).toLocaleDateString()}</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="mt-4 text-sm text-slate-400 italic">Aguardando início...</div>
+                            )}
+                        </div>
+                    </StageBox>
+
                 </div>
             </div>
         </div>

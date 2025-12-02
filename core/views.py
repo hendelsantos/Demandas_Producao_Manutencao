@@ -12,6 +12,24 @@ class MaintenanceRequestViewSet(viewsets.ModelViewSet):
     serializer_class = MaintenanceRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        queryset = MaintenanceRequest.objects.all().order_by('-created_at')
+        
+        # Status Filter
+        status_param = self.request.query_params.get('status', None)
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+            
+        # Search Filter (Title or ID)
+        search_term = self.request.query_params.get('search', None)
+        if search_term:
+            if search_term.isdigit():
+                queryset = queryset.filter(id=search_term)
+            else:
+                queryset = queryset.filter(title__icontains=search_term)
+                
+        return queryset
+
     def perform_create(self, serializer):
         # When created, status is OPEN. Notify Production Approver.
         instance = serializer.save(requester=self.request.user)
@@ -126,6 +144,9 @@ class MaintenanceRequestViewSet(viewsets.ModelViewSet):
         instance.status = 'DONE'
         instance.execution_description = request.data.get('execution_description', '')
         instance.pm04_order = request.data.get('pm04_order', '')
+        instance.observation = request.data.get('observation', '') # Capture final observation
+        from django.utils import timezone
+        instance.finished_at = timezone.now()
         instance.save()
         
         self._log_history(instance, 'FINISHED', request.user, request.data.get('comment', ''))

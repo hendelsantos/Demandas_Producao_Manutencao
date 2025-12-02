@@ -69,9 +69,13 @@ class MaintenanceRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     # Execution fields
-    execution_description = models.TextField(blank=True, null=True)
-    execution_photo = models.ImageField(upload_to='executions/', blank=True, null=True)
-    pm04_order = models.CharField(max_length=50, blank=True, null=True)
+    execution_description = models.TextField(blank=True, null=True, verbose_name="Descrição da Atividade")
+    execution_photo = models.ImageField(upload_to='executions/', blank=True, null=True, verbose_name="Foto da Execução")
+    pm04_order = models.CharField(max_length=50, blank=True, null=True, verbose_name="Nº Ordem PM04")
+    
+    # Whiteboard specific fields
+    observation = models.TextField(blank=True, null=True, verbose_name="Observação")
+    finished_at = models.DateTimeField(blank=True, null=True, verbose_name="Data de Encerramento")
 
     def __str__(self):
         return f"#{self.id} - {self.title}"
