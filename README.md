@@ -10,62 +10,62 @@ Sistema para gerenciamento de demandas de manutenção e produção, com fluxo d
 ## 🚀 Como Rodar Localmente
 
 ### Pré-requisitos
-- Python 3.8+
-- Node.js 16+
-- Git
+- **Python 3.8+**
+- **Node.js 16+**
+- **Git**
 
 ### 1. Backend (Django)
 
-1. Navegue até a pasta do projeto:
-   ```bash
-   cd Sistema_Demandas_Django
-   ```
+#### Passo 1: Clone e navegue
+```bash
+git clone https://github.com/hendelsantos/Demandas_Producao_Manutencao.git
+cd Sistema_Demandas_Django
+```
 
-2. Crie e ative um ambiente virtual:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   # venv\Scripts\activate   # Windows
-   ```
+#### Passo 2: Configurar Ambiente Virtual
 
-3. Instale as dependências:
-   ```bash
-   pip install -r requirements.txt
-   ```
+**Linux / Mac:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
 
-4. Execute as migrações do banco de dados:
-   ```bash
-   python manage.py migrate
-   ```
+**Windows (PowerShell):**
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate
+```
 
-5. (Opcional) Crie usuários de teste:
-   ```bash
-   python create_test_users.py
-   ```
+#### Passo 3: Instalar e Rodar
+```bash
+# Instalar dependências
+pip install -r requirements.txt
 
-6. Inicie o servidor:
-   ```bash
-   python manage.py runserver
-   ```
-   O backend estará rodando em: `http://127.0.0.1:8000`
+# Configurar banco de dados
+python manage.py migrate
+
+# (Opcional) Criar usuários de teste
+python populate_users.py
+
+# Iniciar servidor
+python manage.py runserver
+```
+O backend estará rodando em: `http://127.0.0.1:8000`
 
 ### 2. Frontend (React)
 
-1. Em outro terminal, navegue até a pasta `frontend`:
-   ```bash
-   cd frontend
-   ```
+Abra um **novo terminal** e execute:
 
-2. Instale as dependências:
-   ```bash
-   npm install
-   ```
+```bash
+cd frontend
 
-3. Inicie o servidor de desenvolvimento:
-   ```bash
-   npm run dev
-   ```
-   O frontend estará acessível em: `http://localhost:5173`
+# Instalar dependências
+npm install
+
+# Iniciar servidor de desenvolvimento
+npm run dev
+```
+O frontend estará acessível em: `http://localhost:5173`
 
 ---
 
@@ -139,13 +139,16 @@ Para usar MySQL em produção:
 
 ## 🔑 Credenciais de Teste (Local)
 
-| Usuário | Senha | Função |
+Senha padrão para todos: `password123`
+
+| Usuário | Função | Descrição |
 |---|---|---|
-| `admin` | `admin` | Superusuário / Admin |
-| `solicitante` | `123` | Solicitante |
-| `sup_prod` | `123` | Supervisor de Produção |
-| `sup_manut` | `123` | Supervisor de Manutenção |
-| `gerente` | `123` | Gerente de Manutenção |
-| `tecnico` | `123` | Técnico (Executor) |
-| `eng_mec` | `123` | Eng. Mecânico |
-| `eng_elet` | `123` | Eng. Elétrico |
+| `admin` | **Admin** | Superusuário (Acesso total) |
+| `sup_prod` | **Supervisor Produção** | Aprova demandas iniciais |
+| `sup_maint` | **Supervisor Manutenção** | Define se é Técnica ou Engenharia |
+| `gerente` | **Gerente Manutenção** | Aprova demandas de Engenharia |
+| `tec_hyd` | **Executante (Hidráulica)** | Encarregado de turno |
+| `tec_elec` | **Executante (Elétrica)** | Encarregado de turno |
+| `tec_mech` | **Executante (Mecânica)** | Encarregado de turno |
+| `eng_mech` | **Eng. Mecânico** | Responsável por projetos mecânicos |
+| `eng_elec` | **Eng. Elétrico** | Responsável por projetos elétricos |
