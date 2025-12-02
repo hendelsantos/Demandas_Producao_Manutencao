@@ -20,6 +20,7 @@ const RequestDetails = () => {
     const [executionDesc, setExecutionDesc] = useState('');
     const [finalObservation, setFinalObservation] = useState('');
     const [technicianName, setTechnicianName] = useState('');
+    const [selectedImage, setSelectedImage] = useState(null);
 
     useEffect(() => {
         const fetchRequest = async () => {
@@ -195,7 +196,12 @@ const RequestDetails = () => {
                             {request.photo && (
                                 <div>
                                     <span className="text-slate-500 block text-xs uppercase font-bold mb-1">Foto</span>
-                                    <img src={request.photo} alt="Evidência" className="rounded-lg h-24 w-full object-cover" />
+                                    <img
+                                        src={request.photo}
+                                        alt="Evidência"
+                                        className="rounded-lg h-24 w-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                        onClick={() => setSelectedImage(request.photo)}
+                                    />
                                 </div>
                             )}
                         </div>
@@ -351,8 +357,29 @@ const RequestDetails = () => {
                             )}
                         </div>
                     </StageBox>
-
                 </div>
+
+                {/* Lightbox Modal */}
+                {selectedImage && (
+                    <div
+                        className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-pointer"
+                        onClick={() => setSelectedImage(null)}
+                    >
+                        <div className="relative max-w-4xl max-h-screen">
+                            <img
+                                src={selectedImage}
+                                alt="Visualização em tela cheia"
+                                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                            />
+                            <button
+                                className="absolute -top-10 right-0 text-white hover:text-slate-300"
+                                onClick={() => setSelectedImage(null)}
+                            >
+                                <span className="text-xl font-bold">Fechar [X]</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

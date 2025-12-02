@@ -10,6 +10,7 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState('table'); // 'table' or 'kanban'
+    const [selectedImage, setSelectedImage] = useState(null); // Added selectedImage state
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
